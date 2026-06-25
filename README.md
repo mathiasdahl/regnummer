@@ -11,6 +11,8 @@ Web app for tracking found Swedish licence plate numbers ending in **001** throu
 (regnummer-start)
 ```
 
+All files (HTML, CSS, JS, and `found-plates.txt`) are loaded relative to the package directory, so Emacs's current directory does not matter.
+
 Open [http://localhost:9099/](http://localhost:9099/) in your browser.
 
 Stop the server with `M-x regnummer-stop`.

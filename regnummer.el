@@ -22,34 +22,42 @@
 (defvar regnummer-server nil
   "Running web-server instance, or nil.")
 
+(defvar regnummer--root nil
+  "Absolute directory containing regnummer.el.")
+
 (defvar regnummer-html nil
   "Cached HTML page template.")
 
-(defun regnummer--dir ()
-  "Directory containing regnummer.el."
-  (file-name-directory
-   (or load-file-name
-       (buffer-file-name (current-buffer))
-       default-directory)))
+(defun regnummer--root-dir ()
+  "Return the absolute directory containing regnummer.el."
+  (or regnummer--root
+      (error "Regnummer root directory is unknown; reload with (require 'regnummer)")))
 
-(defvar regnummer-data-file
-  (expand-file-name "found-plates.txt" (regnummer--dir))
-  "Pipe-delimited storage for found plate entries.")
+(defun regnummer--file (name)
+  "Expand NAME relative to the Regnummer package directory."
+  (expand-file-name name (regnummer--root-dir)))
+
+(defconst regnummer-data-file "found-plates.txt"
+  "Data file name, relative to the package directory.")
+
+(defun regnummer--data-file ()
+  "Return absolute path to the data file."
+  (regnummer--file regnummer-data-file))
 
 (defun regnummer--write-data-file (start end)
-  "Write buffer region START to END to `regnummer-data-file' as UTF-8."
+  "Write buffer region START to END to the data file as UTF-8."
   (let ((coding-system-for-write 'utf-8-unix))
-    (write-region start end regnummer-data-file nil 'silent)))
+    (write-region start end (regnummer--data-file) nil 'silent)))
 
 (defun regnummer--load-file (name)
   "Read file NAME from the regnummer directory."
   (with-temp-buffer
-    (insert-file-contents (expand-file-name name (regnummer--dir)))
+    (insert-file-contents (regnummer--file name))
     (buffer-string)))
 
 (defun regnummer--ensure-data-file ()
   "Create the data file if it does not exist."
-  (unless (file-exists-p regnummer-data-file)
+  (unless (file-exists-p (regnummer--data-file))
     (with-temp-buffer
       (insert "# Regnummer data file\n")
       (regnummer--write-data-file (point-min) (point-max)))))
@@ -83,7 +91,7 @@
   "Return all entries from `regnummer-data-file', newest last."
   (regnummer--ensure-data-file)
   (with-temp-buffer
-    (insert-file-contents regnummer-data-file)
+    (insert-file-contents (regnummer--data-file))
     (goto-char (point-min))
     (cl-loop while (not (eobp))
              for line = (string-trim
@@ -118,7 +126,7 @@ Return the removed entry plist, or nil if none."
     (when entries
       (let ((removed (car (last entries))))
         (with-temp-buffer
-          (insert-file-contents regnummer-data-file)
+          (insert-file-contents (regnummer--data-file))
           (goto-char (point-min))
           (let (last-start)
             (while (not (eobp))
@@ -147,7 +155,7 @@ Return the removed entry plist, or nil if none."
                       location
                       plate)))
     (with-temp-buffer
-      (insert-file-contents regnummer-data-file)
+      (insert-file-contents (regnummer--data-file))
       (goto-char (point-max))
       (insert line)
       (regnummer--write-data-file (point-min) (point-max)))))
@@ -781,11 +789,9 @@ Return the removed entry plist, or nil if none."
              (string-match "\\`remove-last\\'" path))
         (regnummer-handle-remove-last process))
        ((string-match "\\`static/regnummer\\.css\\'" path)
-        (ws-send-file process (expand-file-name "regnummer.css"
-                                                (regnummer--dir))))
+        (ws-send-file process (regnummer--file "regnummer.css")))
        ((string-match "\\`static/regnummer\\.js\\'" path)
-        (ws-send-file process (expand-file-name "regnummer.js"
-                                                (regnummer--dir))))
+        (ws-send-file process (regnummer--file "regnummer.js")))
        (t (regnummer-send-page process))))))
 
 ;;;###autoload
@@ -808,6 +814,10 @@ Return the removed entry plist, or nil if none."
     (ws-stop regnummer-server)
     (setq regnummer-server nil)
     (message "Regnummer server stopped")))
+
+(setq regnummer--root
+      (file-name-directory
+       (or load-file-name (find-library-name "regnummer"))))
 
 (provide 'regnummer)
 
