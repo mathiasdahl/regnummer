@@ -16,8 +16,18 @@
 (require 'web-server)
 (require 'cl-lib)
 
+defgroup regnummer nil
+  "Swedish licence plate tracking web app."
+  :group 'applications)
+
 (defvar regnummer-port 9099
   "TCP port for the Regnummer web server.")
+
+(defcustom regnummer-base-path ""
+  "URL prefix when served behind a reverse proxy, e.g. \"/muureg\".
+Leave empty when the app is mounted at the site root."
+  :type 'string
+  :group 'regnummer)
 
 (defvar regnummer-server nil
   "Running web-server instance, or nil.")
@@ -36,6 +46,21 @@
 (defun regnummer--file (name)
   "Expand NAME relative to the Regnummer package directory."
   (expand-file-name name (regnummer--root-dir)))
+
+(defun regnummer--normalize-base-path (path)
+  "Return PATH as a leading-slash prefix without trailing slash, or \"\"."
+  (let ((p (string-trim (or path ""))))
+    (if (string-empty-p p)
+        ""
+      (concat "/" (replace-regexp-in-string "^/\\|/$" "" p)))))
+
+(defun regnummer--url (path)
+  "Return PATH prefixed with `regnummer-base-path'."
+  (let* ((base (regnummer--normalize-base-path regnummer-base-path))
+         (p (if (string-prefix-p "/" path) path (concat "/" path))))
+    (if (string-empty-p base)
+        p
+      (concat base p))))
 
 (defconst regnummer-data-file "found-plates.txt"
   "Data file name, relative to the package directory.")
@@ -646,7 +671,7 @@ Return the removed entry plist, or nil if none."
          (plate (or (cdr (assoc "plate" vals)) "")))
     (format "<section>
   <h2>Registrera hittat nummer</h2>
-  <form method=\"post\" action=\"/register\">
+  <form method=\"post\" action=\"%s\">
     <input type=\"hidden\" name=\"number\" value=\"%d\">
     <div class=\"form-row\">
       <label for=\"name\">Namn</label>
@@ -673,6 +698,7 @@ Return the removed entry plist, or nil if none."
     <input type=\"submit\" value=\"Registrera\">
   </form>
 </section>"
+            (regnummer-escape (regnummer--url "/register"))
             next
             (regnummer-escape name)
             (regnummer-escape location)
@@ -704,10 +730,10 @@ Return the removed entry plist, or nil if none."
   </thead>
   <tbody>%s</tbody>
 </table>
-<form class=\"undo-form\" method=\"post\" action=\"/remove-last\"
+<form class=\"undo-form\" method=\"post\" action=\"%s\"
       onsubmit=\"return confirm('Ta bort senaste registreringen?');\">
   <button type=\"submit\">Ta bort senaste</button>
-</form>" rows)))))
+</form>" rows (regnummer-escape (regnummer--url "/remove-last")))))))
 
 (defun regnummer-render-page (&optional error values)
   "Render the full HTML page with optional ERROR and form VALUES."
@@ -724,7 +750,10 @@ Return the removed entry plist, or nil if none."
                        (regnummer-render-stats entries)
                        (regnummer-render-table entries)
                        "</main>")))
-    (format regnummer-html body)))
+    (format regnummer-html
+            (regnummer--url "/static/regnummer.css")
+            body
+            (regnummer--url "/static/regnummer.js"))))
 
 (defun regnummer-send-page (process &optional error values)
   "Send the main page to PROCESS."
@@ -762,8 +791,9 @@ Return the removed entry plist, or nil if none."
       (regnummer-append-entry number name location plate)
       (ws-response-header process 303
                           (cons "Location"
-                                (format "/?registered=%s"
-                                        (regnummer-format-number number)))
+                                (regnummer--url
+                                 (format "/?registered=%s"
+                                         (regnummer-format-number number))))
                           '("Content-type" . "text/html; charset=utf-8"))
       (process-send-string process "")))))
 
@@ -772,7 +802,7 @@ Return the removed entry plist, or nil if none."
   (if (regnummer-remove-last-entry)
       (progn
         (ws-response-header process 303
-                            '("Location" . "/")
+                            (cons "Location" (regnummer--url "/"))
                             '("Content-type" . "text/html; charset=utf-8"))
         (process-send-string process ""))
     (regnummer-send-page process "Inget att ta bort.")))

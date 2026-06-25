@@ -17,6 +17,27 @@ Open [http://localhost:9099/](http://localhost:9099/) in your browser.
 
 Stop the server with `M-x regnummer-stop`.
 
+## Reverse proxy (subpath)
+
+When the app is served under a URL prefix (e.g. `https://example.com/muureg/`), set the base path before starting:
+
+```elisp
+(setq regnummer-base-path "/muureg")
+(setq regnummer-port 9070)
+(require 'regnummer)
+(regnummer-start)
+```
+
+Apache example:
+
+```apache
+RedirectMatch 301 ^/muureg$ /muureg/
+ProxyPass        /muureg/  http://127.0.0.1:9070/
+ProxyPassReverse /muureg/  http://127.0.0.1:9070/
+```
+
+The backend still receives paths without the prefix (`/static/…`, `/register`, etc.); `regnummer-base-path` ensures HTML links, forms, and redirects use the public URL.
+
 ## Usage
 
 The page shows the next number to find based on the highest number in the data file. Fill in **Namn** (required), optionally **Plats** (use **Hämta min plats** for browser geolocation), and optionally the full **Registreringsnummer**, then click **Registrera**.
