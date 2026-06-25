@@ -16,7 +16,7 @@
 (require 'web-server)
 (require 'cl-lib)
 
-defgroup regnummer nil
+(defgroup regnummer nil
   "Swedish licence plate tracking web app."
   :group 'applications)
 
@@ -38,6 +38,33 @@ Leave empty when the app is mounted at the site root."
 (defvar regnummer-html nil
   "Cached HTML page template.")
 
+(defvar regnummer--request-base-path nil
+  "Effective URL prefix for the current HTTP request.")
+
+(defun regnummer--header (headers name)
+  "Return HTTP header NAME from request HEADERS."
+  (cdr (assoc (intern (concat ":" (upcase name))) headers)))
+
+(defun regnummer--resolve-base-path (&optional headers)
+  "Return the URL prefix from config or the X-Forwarded-Prefix header."
+  (cond
+   ((not (string-empty-p (string-trim (or regnummer-base-path ""))))
+    (regnummer--normalize-base-path regnummer-base-path))
+   (headers
+    (let ((prefix (regnummer--header headers "X-Forwarded-Prefix")))
+      (when (and prefix (not (string-empty-p prefix)))
+        (regnummer--normalize-base-path prefix))))
+   (t "")))
+
+(defun regnummer--url (path)
+  "Return PATH prefixed with the effective base path."
+  (let* ((base (or regnummer--request-base-path
+                   (regnummer--resolve-base-path)))
+         (p (if (string-prefix-p "/" path) path (concat "/" path))))
+    (if (string-empty-p base)
+        p
+      (concat base p))))
+
 (defun regnummer--root-dir ()
   "Return the absolute directory containing regnummer.el."
   (or regnummer--root
@@ -53,14 +80,6 @@ Leave empty when the app is mounted at the site root."
     (if (string-empty-p p)
         ""
       (concat "/" (replace-regexp-in-string "^/\\|/$" "" p)))))
-
-(defun regnummer--url (path)
-  "Return PATH prefixed with `regnummer-base-path'."
-  (let* ((base (regnummer--normalize-base-path regnummer-base-path))
-         (p (if (string-prefix-p "/" path) path (concat "/" path))))
-    (if (string-empty-p base)
-        p
-      (concat base p))))
 
 (defconst regnummer-data-file "found-plates.txt"
   "Data file name, relative to the package directory.")
@@ -810,7 +829,8 @@ Return the removed entry plist, or nil if none."
 (defun regnummer-handler (request)
   "Handle one HTTP REQUEST."
   (with-slots (process headers) request
-    (let ((path (regnummer-request-path headers)))
+    (let ((regnummer--request-base-path (regnummer--resolve-base-path headers))
+          (path (regnummer-request-path headers)))
       (cond
        ((and (assoc :POST headers)
              (string-match "\\`register\\'" path))
@@ -831,6 +851,7 @@ Return the removed entry plist, or nil if none."
   (when regnummer-server
     (user-error "Regnummer server already running on port %s"
                 (ws-port regnummer-server)))
+  (setq regnummer-html nil)
   (setq regnummer-server
         (ws-start #'regnummer-handler (or port regnummer-port)))
   (message "Regnummer server started: http://localhost:%s/"
@@ -848,6 +869,10 @@ Return the removed entry plist, or nil if none."
 (setq regnummer--root
       (file-name-directory
        (or load-file-name (find-library-name "regnummer"))))
+
+(let ((local (expand-file-name "regnummer-local.el" regnummer--root)))
+  (when (file-exists-p local)
+    (load local nil t t)))
 
 (provide 'regnummer)
 

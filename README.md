@@ -28,15 +28,24 @@ When the app is served under a URL prefix (e.g. `https://example.com/muureg/`), 
 (regnummer-start)
 ```
 
+Or copy [`regnummer-local.el.example`](regnummer-local.el.example) to `regnummer-local.el` in the package directory — it is loaded automatically on `(require 'regnummer)`.
+
 Apache example:
 
 ```apache
 RedirectMatch 301 ^/muureg$ /muureg/
+RequestHeader set X-Forwarded-Prefix "/muureg"
 ProxyPass        /muureg/  http://127.0.0.1:9070/
 ProxyPassReverse /muureg/  http://127.0.0.1:9070/
 ```
 
-The backend still receives paths without the prefix (`/static/…`, `/register`, etc.); `regnummer-base-path` ensures HTML links, forms, and redirects use the public URL.
+`RequestHeader` requires `mod_headers` (`a2enmod headers`). The app also reads `X-Forwarded-Prefix` when `regnummer-base-path` is empty.
+
+After deploying, restart Emacs or run `M-x regnummer-stop` then `M-x regnummer-start` so the HTML template cache is cleared.
+
+Verify in the browser (View Source): CSS should be `/muureg/static/regnummer.css`, not `/static/regnummer.css`.
+
+The backend still receives paths without the prefix (`/static/…`, `/register`, etc.); the base path ensures HTML links, forms, and redirects use the public URL.
 
 ## Usage
 
