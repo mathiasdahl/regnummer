@@ -158,11 +158,6 @@ Leave empty when the app is mounted at the site root."
                                           entries))))
         (if (>= max-num 999) nil (+ max-num 1))))))
 
-(defun regnummer-last-name (entries)
-  "Return the name from the most recent entry in ENTRIES."
-  (when entries
-    (plist-get (car (last entries)) :name)))
-
 (defun regnummer-remove-last-entry ()
   "Remove the last data line from `regnummer-data-file'.
 Return the removed entry plist, or nil if none."
@@ -682,10 +677,7 @@ Return the removed entry plist, or nil if none."
   (unless next
     (cl-return-from regnummer-render-form ""))
   (let* ((vals (or values '()))
-         (entries (regnummer-read-entries))
-         (name (or (cdr (assoc "name" vals))
-                   (regnummer-last-name entries)
-                   ""))
+         (name (or (cdr (assoc "name" vals)) ""))
          (location (or (cdr (assoc "location" vals)) ""))
          (plate (or (cdr (assoc "plate" vals)) "")))
     (format "<section>

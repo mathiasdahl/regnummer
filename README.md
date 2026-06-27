@@ -51,7 +51,7 @@ The backend still receives paths without the prefix (`/static/…`, `/register`,
 
 The page shows the next number to find based on the highest number in the data file. Fill in **Namn** (required), optionally **Plats** (use **Hämta min plats** for browser geolocation), and optionally the full **Registreringsnummer**, then click **Registrera**.
 
-**Namn** is prefilled from the most recent registration. After a successful registration, a short celebration with fireworks and an uplifting quote is shown. Use **Ta bort senaste** below the table to undo the last entry (for mistakes or demos).
+**Namn** is remembered in your browser (localStorage) so it stays filled in across visits. After a successful registration, a short celebration with fireworks and an uplifting quote is shown. Use **Ta bort senaste** below the table to undo the last entry (for mistakes or demos).
 
 All found entries are listed in a table with number, date, finder, and location.
 

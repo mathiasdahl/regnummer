@@ -226,11 +226,34 @@
     }
   }
 
+  var NAME_STORAGE_KEY = "regnummer-name";
+
+  function initNamePersistence() {
+    var nameInput = document.getElementById("name");
+    if (!nameInput) return;
+
+    var stored = localStorage.getItem(NAME_STORAGE_KEY);
+    if (stored && !nameInput.value.trim()) {
+      nameInput.value = stored;
+    }
+
+    var form = nameInput.closest("form");
+    if (form) {
+      form.addEventListener("submit", function () {
+        var name = nameInput.value.trim();
+        if (name) {
+          localStorage.setItem(NAME_STORAGE_KEY, name);
+        }
+      });
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.getElementById("location-btn");
     if (btn) {
       btn.addEventListener("click", fetchLocation);
     }
+    initNamePersistence();
     maybeCelebrate();
   });
 })();
